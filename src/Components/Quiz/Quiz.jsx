@@ -1,12 +1,19 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import "./Quiz.css";
 import { data } from "../../assets/data";
+import {
+  saveToStorage,
+  loadFromStorage,
+  clearStorage,
+} from "../../storage/storage";
+
 const Quiz = () => {
-  let [index, setIndex] = useState(0);
+  let [index, setIndex] = useState(loadFromStorage("currentIndex") || 0);
   let [question, setQuestion] = useState(data[index]);
   let [lock, setLock] = useState(false);
-  let [score, setScore] = useState(0);
+  let [score, setScore] = useState(loadFromStorage("score") || 0);
   let [result, setResult] = useState(false);
+  let [warning, setWarning] = useState("");
 
   let Option1 = useRef(null);
   let Option2 = useRef(null);
@@ -14,6 +21,11 @@ const Quiz = () => {
   let Option4 = useRef(null);
 
   let option_array = [Option1, Option2, Option3, Option4];
+
+  useEffect(() => {
+    saveToStorage("currentIndex", index);
+    saveToStorage("score", score);
+  }, [index, score]);
 
   const checkAns = (e, ans) => {
     if (lock === false) {
@@ -26,33 +38,39 @@ const Quiz = () => {
         setLock(true);
         option_array[question.ans - 1].current.classList.add("correct");
       }
+      setWarning("");
     }
   };
 
   const next = () => {
-    if (lock === true) {
-      if (index === data.length - 1) {
-        setResult(true);
-        return 0;
-      }
-      setIndex(++index);
-      setQuestion(data[index]);
-      setLock(false);
-      option_array.map((option) => {
-        option.current.classList.remove("wrong");
-        option.current.classList.remove("correct");
-        return null;
-      });
+    if (lock === false) {
+      setWarning("You need to answer the question.");
+      return;
     }
+
+    if (index === data.length - 1) {
+      setResult(true);
+      return;
+    }
+    setIndex((prevIndex) => prevIndex + 1);
+    setQuestion(data[index + 1]);
+    setLock(false);
+    setWarning("");
+    option_array.forEach((option) => {
+      option.current.classList.remove("wrong");
+      option.current.classList.remove("correct");
+    });
   };
 
-  const reset =()=>{
+  const reset = () => {
     setIndex(0);
     setQuestion(data[0]);
     setScore(0);
     setLock(false);
     setResult(false);
-  }
+    clearStorage();
+    setWarning("");
+  };
 
   return (
     <div className="container">
@@ -99,17 +117,21 @@ const Quiz = () => {
               {question.option4}
             </li>
           </ul>
+          {warning && <p className="warning">{warning}</p>}
           <button onClick={next}>Next</button>
           <div className="index">
             {index + 1} of {data.length}
           </div>
         </>
       )}
-      {result?<>
-        <h2>You Scored {score} out of {data.length}</h2>
-      <button onClick={reset}>Reset</button>    
-      </>:<></>}
-
+      {result ? (
+        <>
+          <h2>
+            You Scored {score} out of {data.length}
+          </h2>
+          <button onClick={reset}>Reset</button>
+        </>
+      ) : null}
     </div>
   );
 };
